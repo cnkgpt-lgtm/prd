@@ -15,6 +15,17 @@ import {
   hitungKelengkapan,
   formatTanggal,
 } from "@/lib/store";
+import {
+  CATATAN_SARAN,
+  pilihanTeks,
+  paketFitur,
+  paketStories,
+  paketMetrik,
+  paketMilestone,
+  paketStakeholder,
+  type PilihanTeks,
+  type PaketDaftar,
+} from "@/lib/saran";
 
 type Mode = "editor" | "pratinjau";
 
@@ -48,22 +59,46 @@ function Bagian({
   );
 }
 
+const tombolSaranKelas =
+  "rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-500";
+
 function AreaTeks({
   label,
   nilai,
   ubah,
   baris = 4,
   placeholder,
+  pilihan,
 }: {
   label?: string;
   nilai: string;
   ubah: (v: string) => void;
   baris?: number;
   placeholder?: string;
+  /** Pilihan jawaban siap pakai (Pilihan AI) untuk kolom ini. */
+  pilihan?: PilihanTeks[];
 }) {
+  const [buka, setBuka] = useState(false);
+  const adaIsi = nilai.trim().length > 0;
   return (
     <div>
-      {label && <span className={labelKelas}>{label}</span>}
+      <div className="flex items-center justify-between gap-2">
+        {label ? (
+          <span className={labelKelas}>{label}</span>
+        ) : (
+          <span />
+        )}
+        {pilihan && (
+          <button
+            type="button"
+            onClick={() => setBuka((b) => !b)}
+            className={tombolSaranKelas}
+            aria-expanded={buka}
+          >
+            ✨ Pilihan AI
+          </button>
+        )}
+      </div>
       <textarea
         value={nilai}
         onChange={(e) => ubah(e.target.value)}
@@ -71,6 +106,124 @@ function AreaTeks({
         placeholder={placeholder}
         className={`${inputKelas} mt-1`}
       />
+      {buka && pilihan && (
+        <div className="mt-2 rounded-lg bg-violet-50 p-3 ring-1 ring-violet-200">
+          <p className="text-xs font-semibold text-violet-900">
+            ✨ Pilihan AI — pilih satu jawaban siap pakai untuk kolom ini
+          </p>
+          <p className="mt-0.5 text-[11px] italic text-violet-700">
+            {CATATAN_SARAN}
+          </p>
+          <div className="mt-2.5 space-y-2">
+            {pilihan.map((p, idx) => (
+              <div
+                key={idx}
+                className="rounded-lg bg-white p-3 ring-1 ring-violet-100"
+              >
+                <p className="text-xs font-bold text-violet-700">{p.label}</p>
+                <p className="mt-1 line-clamp-4 whitespace-pre-line text-xs leading-relaxed text-slate-600">
+                  {p.teks}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (
+                        adaIsi &&
+                        !window.confirm(
+                          "Kolom ini sudah berisi teks. Ganti seluruh isinya dengan pilihan ini?"
+                        )
+                      ) {
+                        return;
+                      }
+                      ubah(p.teks);
+                      setBuka(false);
+                    }}
+                    className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-500"
+                  >
+                    {adaIsi ? "Ganti Isi dengan Pilihan Ini" : "Gunakan Pilihan Ini"}
+                  </button>
+                  {adaIsi && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        ubah(nilai.replace(/\s+$/, "") + "\n" + p.teks);
+                        setBuka(false);
+                      }}
+                      className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-violet-700 ring-1 ring-violet-300 hover:bg-violet-100"
+                    >
+                      Tambahkan di Bawahnya
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Tombol + panel "✨ Pilihan AI" untuk bagian daftar (Fitur, User Stories,
+ * Metrik, Milestone, Stakeholder): menawarkan paket entri siap pakai yang
+ * DITAMBAHKAN ke daftar (tidak pernah mengganti entri yang sudah ada).
+ */
+function SaranDaftar<T>({
+  paket,
+  tambah,
+}: {
+  paket: PaketDaftar<T>[];
+  tambah: (entri: T[]) => void;
+}) {
+  const [buka, setBuka] = useState(false);
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setBuka((b) => !b)}
+        className={tombolSaranKelas}
+        aria-expanded={buka}
+      >
+        ✨ Pilihan AI — Paket Siap Pakai
+      </button>
+      {buka && (
+        <div className="mt-2 rounded-lg bg-violet-50 p-3 ring-1 ring-violet-200">
+          <p className="text-xs font-semibold text-violet-900">
+            ✨ Pilihan AI — paket entri siap pakai, ditambahkan ke daftar Anda
+            (entri yang sudah ada tidak diubah)
+          </p>
+          <p className="mt-0.5 text-[11px] italic text-violet-700">
+            {CATATAN_SARAN}
+          </p>
+          <div className="mt-2.5 space-y-2">
+            {paket.map((p, idx) => (
+              <div
+                key={idx}
+                className="rounded-lg bg-white p-3 ring-1 ring-violet-100"
+              >
+                <p className="text-xs font-bold text-violet-700">{p.label}</p>
+                <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs leading-relaxed text-slate-600">
+                  {p.ringkasan.map((r, ri) => (
+                    <li key={ri}>{r}</li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  onClick={() => {
+                    tambah(p.entri);
+                    setBuka(false);
+                  }}
+                  className="mt-2 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-500"
+                >
+                  Tambahkan Paket Ini ({p.entri.length} entri)
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -317,24 +470,24 @@ export default function HalamanPrd() {
           </section>
 
           <Bagian nomor={1} judul="Overview" petunjuk="Ringkasan produk: apa, untuk siapa, dan nilai utamanya.">
-            <AreaTeks nilai={prd.overview} ubah={(v) => ubah({ overview: v })} baris={5} />
+            <AreaTeks nilai={prd.overview} ubah={(v) => ubah({ overview: v })} baris={5} pilihan={pilihanTeks("overview", prd)} />
           </Bagian>
 
           <Bagian nomor={2} judul="Masalah" petunjuk="Masalah pengguna saat ini dan dampaknya bila tidak diselesaikan.">
-            <AreaTeks nilai={prd.masalah} ubah={(v) => ubah({ masalah: v })} baris={5} />
+            <AreaTeks nilai={prd.masalah} ubah={(v) => ubah({ masalah: v })} baris={5} pilihan={pilihanTeks("masalah", prd)} />
           </Bagian>
 
           <Bagian nomor={3} judul="Tujuan" petunjuk="Hasil yang ingin dicapai produk ini, ditulis bernomor.">
-            <AreaTeks nilai={prd.tujuan} ubah={(v) => ubah({ tujuan: v })} baris={5} />
+            <AreaTeks nilai={prd.tujuan} ubah={(v) => ubah({ tujuan: v })} baris={5} pilihan={pilihanTeks("tujuan", prd)} />
           </Bagian>
 
           <Bagian nomor={4} judul="Target Pengguna" petunjuk="Pengguna utama dan sekunder, beserta kebutuhannya.">
-            <AreaTeks nilai={prd.targetPengguna} ubah={(v) => ubah({ targetPengguna: v })} baris={4} />
+            <AreaTeks nilai={prd.targetPengguna} ubah={(v) => ubah({ targetPengguna: v })} baris={4} pilihan={pilihanTeks("targetPengguna", prd)} />
           </Bagian>
 
           <Bagian nomor={5} judul="Scope & Out of Scope" petunjuk="Batas yang jelas mencegah ruang lingkup melebar (scope creep).">
-            <AreaTeks label="Termasuk (Scope)" nilai={prd.scope} ubah={(v) => ubah({ scope: v })} baris={4} />
-            <AreaTeks label="Tidak Termasuk (Out of Scope)" nilai={prd.outOfScope} ubah={(v) => ubah({ outOfScope: v })} baris={4} />
+            <AreaTeks label="Termasuk (Scope)" nilai={prd.scope} ubah={(v) => ubah({ scope: v })} baris={4} pilihan={pilihanTeks("scope", prd)} />
+            <AreaTeks label="Tidak Termasuk (Out of Scope)" nilai={prd.outOfScope} ubah={(v) => ubah({ outOfScope: v })} baris={4} pilihan={pilihanTeks("outOfScope", prd)} />
           </Bagian>
 
           <Bagian nomor={6} judul="Fitur & Prioritas (MoSCoW)" petunjuk="Must Have = wajib ada; Should Have = penting; Could Have = bila sempat; Won't Have = sengaja tidak dibuat.">
@@ -393,6 +546,10 @@ export default function HalamanPrd() {
                 />
               </div>
             ))}
+            <SaranDaftar
+              paket={paketFitur(prd)}
+              tambah={(entri) => ubah({ fitur: [...prd.fitur, ...entri] })}
+            />
             <button
               onClick={() =>
                 ubah({
@@ -469,6 +626,10 @@ export default function HalamanPrd() {
                 </div>
               </div>
             ))}
+            <SaranDaftar
+              paket={paketStories(prd)}
+              tambah={(entri) => ubah({ stories: [...prd.stories, ...entri] })}
+            />
             <button
               onClick={() =>
                 ubah({
@@ -531,6 +692,10 @@ export default function HalamanPrd() {
                 />
               </div>
             ))}
+            <SaranDaftar
+              paket={paketMetrik(prd)}
+              tambah={(entri) => ubah({ metrik: [...prd.metrik, ...entri] })}
+            />
             <button
               onClick={() =>
                 ubah({
@@ -593,6 +758,10 @@ export default function HalamanPrd() {
                 />
               </div>
             ))}
+            <SaranDaftar
+              paket={paketMilestone(prd)}
+              tambah={(entri) => ubah({ milestones: [...prd.milestones, ...entri] })}
+            />
             <button
               onClick={() =>
                 ubah({
@@ -606,12 +775,12 @@ export default function HalamanPrd() {
           </Bagian>
 
           <Bagian nomor={10} judul="Persyaratan Non-Fungsional" petunjuk="Bahasa, performa, keamanan, ketersediaan, dan kegunaan.">
-            <AreaTeks nilai={prd.nonFungsional} ubah={(v) => ubah({ nonFungsional: v })} baris={5} />
+            <AreaTeks nilai={prd.nonFungsional} ubah={(v) => ubah({ nonFungsional: v })} baris={5} pilihan={pilihanTeks("nonFungsional", prd)} />
           </Bagian>
 
           <Bagian nomor={11} judul="Risiko & Asumsi" petunjuk="Risiko beserta mitigasinya, dan asumsi yang dipakai dokumen ini.">
-            <AreaTeks label="Risiko & Mitigasi" nilai={prd.risiko} ubah={(v) => ubah({ risiko: v })} baris={5} />
-            <AreaTeks label="Asumsi" nilai={prd.asumsi} ubah={(v) => ubah({ asumsi: v })} baris={4} />
+            <AreaTeks label="Risiko & Mitigasi" nilai={prd.risiko} ubah={(v) => ubah({ risiko: v })} baris={5} pilihan={pilihanTeks("risiko", prd)} />
+            <AreaTeks label="Asumsi" nilai={prd.asumsi} ubah={(v) => ubah({ asumsi: v })} baris={4} pilihan={pilihanTeks("asumsi", prd)} />
           </Bagian>
 
           <Bagian nomor={12} judul="Stakeholder" petunjuk="Pihak yang terlibat: Product Manager, desainer, engineer, dan pemangku kepentingan lain.">
@@ -664,6 +833,10 @@ export default function HalamanPrd() {
                 />
               </div>
             ))}
+            <SaranDaftar
+              paket={paketStakeholder(prd)}
+              tambah={(entri) => ubah({ stakeholders: [...prd.stakeholders, ...entri] })}
+            />
             <button
               onClick={() =>
                 ubah({

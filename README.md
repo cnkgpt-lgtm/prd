@@ -15,6 +15,7 @@ Aplikasi web untuk membuat, mengelola, dan menyimpan **Product Requirements Docu
 - Daftar PRD dengan pencarian, filter status (Draft / In Review / Approved / Arsip), dan statistik
 - Buat PRD dari 4 template: Kosong, Produk Baru, Fitur Baru, Improvement
 - Editor 11 bagian: Overview, Masalah, Tujuan, Target Pengguna, Scope & Out of Scope, Fitur MoSCoW, User Stories + kriteria penerimaan, Metrik KPI, Timeline/Milestone, Non-fungsional, Risiko & Asumsi, Stakeholder
+- **✨ Pilihan AI** di setiap pertanyaan editor: 3 pilihan jawaban siap pakai per kolom teks dan paket entri siap pakai untuk Fitur, User Stories, Metrik, Milestone, dan Stakeholder — dipersonalisasi dengan nama produk. Pilihan diganti hanya setelah konfirmasi, atau ditambahkan di bawah isi yang ada; paket daftar selalu ditambahkan tanpa mengubah entri lama. Catatan kejujuran: pilihan ini berasal dari pustaka jawaban terkurasi di sisi klien, **bukan** panggilan model AI live (aplikasi tidak memakai API key eksternal), dan keterangan itu ditampilkan juga di UI.
 - Indikator kelengkapan dokumen real-time
 - Pratinjau dokumen resmi + cetak / simpan PDF
 - Duplikasi & hapus PRD
