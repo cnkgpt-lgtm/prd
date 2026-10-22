@@ -12,9 +12,14 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MODEL_UTAMA = "gemini-2.5-flash";
-const MODEL_CADANGAN = "gemini-2.0-flash";
-const BATAS_WAKTU_MS = 25_000;
+/**
+ * Rantai model, dicoba berurutan. gemini-3.5-flash terverifikasi bekerja
+ * dengan key yang terpasang (Okt 2026); model 2.5/2.0 dinyatakan Gemini
+ * "no longer available to new users", 3.8-flash sempat 503 (high demand),
+ * jadi keduanya hanya cadangan terakhir.
+ */
+const DAFTAR_MODEL = ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-2.5-flash"];
+const BATAS_WAKTU_MS = 20_000;
 
 type Jenis =
   | "teks"
@@ -156,14 +161,20 @@ export async function POST(req: NextRequest) {
 
   const prompt = buatPrompt({ ...body, jenis });
 
-  let hasil = await panggilGemini(MODEL_UTAMA, prompt, apiKey);
-  let model = MODEL_UTAMA;
-  if (!hasil.ok && (hasil.status === 404 || hasil.status === 400)) {
-    // Model utama tidak tersedia untuk key ini — coba model cadangan sekali.
-    const cadangan = await panggilGemini(MODEL_CADANGAN, prompt, apiKey);
-    if (cadangan.ok) {
-      hasil = cadangan;
-      model = MODEL_CADANGAN;
+  // Coba model berurutan; lanjut ke model berikutnya hanya untuk error
+  // ketersediaan model (400/404/503). Error autentikasi/kuota (401/403/429)
+  // tidak akan terbantu dengan mengganti model, jadi langsung berhenti.
+  let hasil: Awaited<ReturnType<typeof panggilGemini>> = {
+    ok: false,
+    status: 502,
+  };
+  let model = DAFTAR_MODEL[0];
+  for (const m of DAFTAR_MODEL) {
+    model = m;
+    hasil = await panggilGemini(m, prompt, apiKey);
+    if (hasil.ok) break;
+    if (hasil.status !== 404 && hasil.status !== 400 && hasil.status !== 503) {
+      break;
     }
   }
 
