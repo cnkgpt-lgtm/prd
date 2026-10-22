@@ -26,6 +26,14 @@ import {
   type PilihanTeks,
   type PaketDaftar,
 } from "@/lib/saran";
+import {
+  mintaPilihanTeks,
+  mintaPaketFitur,
+  mintaPaketStories,
+  mintaPaketMetrik,
+  mintaPaketMilestone,
+  mintaPaketStakeholder,
+} from "@/lib/ai-client";
 
 type Mode = "editor" | "pratinjau";
 
@@ -69,6 +77,7 @@ function AreaTeks({
   baris = 4,
   placeholder,
   pilihan,
+  mintaAi,
 }: {
   label?: string;
   nilai: string;
@@ -77,9 +86,33 @@ function AreaTeks({
   placeholder?: string;
   /** Pilihan jawaban siap pakai (Pilihan AI) untuk kolom ini. */
   pilihan?: PilihanTeks[];
+  /** Peminta pilihan ke AI Gemini (server). Null/gagal → pakai `pilihan` lokal. */
+  mintaAi?: () => Promise<PilihanTeks[] | null>;
 }) {
   const [buka, setBuka] = useState(false);
+  const [memuat, setMemuat] = useState(false);
+  const [sudahMinta, setSudahMinta] = useState(false);
+  const [dariGemini, setDariGemini] = useState(false);
+  const [pilihanGemini, setPilihanGemini] = useState<PilihanTeks[] | null>(null);
+  const tampil = pilihanGemini ?? pilihan;
   const adaIsi = nilai.trim().length > 0;
+
+  useEffect(() => {
+    if (!buka || !mintaAi || sudahMinta) return;
+    setSudahMinta(true);
+    setMemuat(true);
+    mintaAi()
+      .then((hasil) => {
+        if (hasil && hasil.length > 0) {
+          setPilihanGemini(hasil);
+          setDariGemini(true);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setMemuat(false));
+    // mintaAi adalah closure segar tiap render; sudahMinta mencegah pengulangan.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buka, sudahMinta]);
   return (
     <div>
       <div className="flex items-center justify-between gap-2">
@@ -106,16 +139,30 @@ function AreaTeks({
         placeholder={placeholder}
         className={`${inputKelas} mt-1`}
       />
-      {buka && pilihan && (
+      {buka && tampil && (
         <div className="mt-2 rounded-lg bg-violet-50 p-3 ring-1 ring-violet-200">
           <p className="text-xs font-semibold text-violet-900">
             ✨ Pilihan AI — pilih satu jawaban siap pakai untuk kolom ini
           </p>
-          <p className="mt-0.5 text-[11px] italic text-violet-700">
-            {CATATAN_SARAN}
-          </p>
+          {memuat ? (
+            <p className="mt-0.5 text-[11px] italic text-violet-700">
+              ⏳ Sedang meminta pilihan ke AI Gemini… bila gagal, saran bawaan
+              aplikasi yang ditampilkan.
+            </p>
+          ) : dariGemini ? (
+            <p className="mt-0.5 text-[11px] italic text-violet-700">
+              Pilihan dihasilkan AI Gemini berdasarkan konteks dokumen ini —
+              periksa &amp; sesuaikan sebelum memakai.
+            </p>
+          ) : (
+            <p className="mt-0.5 text-[11px] italic text-violet-700">
+              {sudahMinta && mintaAi
+                ? `${CATATAN_SARAN} (AI Gemini tidak terjangkau saat ini.)`
+                : CATATAN_SARAN}
+            </p>
+          )}
           <div className="mt-2.5 space-y-2">
-            {pilihan.map((p, idx) => (
+            {tampil.map((p, idx) => (
               <div
                 key={idx}
                 className="rounded-lg bg-white p-3 ring-1 ring-violet-100"
@@ -173,11 +220,36 @@ function AreaTeks({
 function SaranDaftar<T>({
   paket,
   tambah,
+  mintaAi,
 }: {
   paket: PaketDaftar<T>[];
   tambah: (entri: T[]) => void;
+  /** Peminta paket ke AI Gemini (server). Null/gagal → pakai `paket` lokal. */
+  mintaAi?: () => Promise<PaketDaftar<T>[] | null>;
 }) {
   const [buka, setBuka] = useState(false);
+  const [memuat, setMemuat] = useState(false);
+  const [sudahMinta, setSudahMinta] = useState(false);
+  const [dariGemini, setDariGemini] = useState(false);
+  const [paketGemini, setPaketGemini] = useState<PaketDaftar<T>[] | null>(null);
+  const tampil = paketGemini ?? paket;
+
+  useEffect(() => {
+    if (!buka || !mintaAi || sudahMinta) return;
+    setSudahMinta(true);
+    setMemuat(true);
+    mintaAi()
+      .then((hasil) => {
+        if (hasil && hasil.length > 0) {
+          setPaketGemini(hasil);
+          setDariGemini(true);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setMemuat(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buka, sudahMinta]);
+
   return (
     <div>
       <button
@@ -194,11 +266,25 @@ function SaranDaftar<T>({
             ✨ Pilihan AI — paket entri siap pakai, ditambahkan ke daftar Anda
             (entri yang sudah ada tidak diubah)
           </p>
-          <p className="mt-0.5 text-[11px] italic text-violet-700">
-            {CATATAN_SARAN}
-          </p>
+          {memuat ? (
+            <p className="mt-0.5 text-[11px] italic text-violet-700">
+              ⏳ Sedang meminta paket ke AI Gemini… bila gagal, saran bawaan
+              aplikasi yang ditampilkan.
+            </p>
+          ) : dariGemini ? (
+            <p className="mt-0.5 text-[11px] italic text-violet-700">
+              Paket dihasilkan AI Gemini berdasarkan konteks dokumen ini —
+              periksa &amp; sesuaikan sebelum memakai.
+            </p>
+          ) : (
+            <p className="mt-0.5 text-[11px] italic text-violet-700">
+              {sudahMinta && mintaAi
+                ? `${CATATAN_SARAN} (AI Gemini tidak terjangkau saat ini.)`
+                : CATATAN_SARAN}
+            </p>
+          )}
           <div className="mt-2.5 space-y-2">
-            {paket.map((p, idx) => (
+            {tampil.map((p, idx) => (
               <div
                 key={idx}
                 className="rounded-lg bg-white p-3 ring-1 ring-violet-100"
@@ -470,24 +556,24 @@ export default function HalamanPrd() {
           </section>
 
           <Bagian nomor={1} judul="Overview" petunjuk="Ringkasan produk: apa, untuk siapa, dan nilai utamanya.">
-            <AreaTeks nilai={prd.overview} ubah={(v) => ubah({ overview: v })} baris={5} pilihan={pilihanTeks("overview", prd)} />
+            <AreaTeks nilai={prd.overview} ubah={(v) => ubah({ overview: v })} baris={5} pilihan={pilihanTeks("overview", prd)} mintaAi={() => mintaPilihanTeks("Overview", prd)} />
           </Bagian>
 
           <Bagian nomor={2} judul="Masalah" petunjuk="Masalah pengguna saat ini dan dampaknya bila tidak diselesaikan.">
-            <AreaTeks nilai={prd.masalah} ubah={(v) => ubah({ masalah: v })} baris={5} pilihan={pilihanTeks("masalah", prd)} />
+            <AreaTeks nilai={prd.masalah} ubah={(v) => ubah({ masalah: v })} baris={5} pilihan={pilihanTeks("masalah", prd)} mintaAi={() => mintaPilihanTeks("Masalah", prd)} />
           </Bagian>
 
           <Bagian nomor={3} judul="Tujuan" petunjuk="Hasil yang ingin dicapai produk ini, ditulis bernomor.">
-            <AreaTeks nilai={prd.tujuan} ubah={(v) => ubah({ tujuan: v })} baris={5} pilihan={pilihanTeks("tujuan", prd)} />
+            <AreaTeks nilai={prd.tujuan} ubah={(v) => ubah({ tujuan: v })} baris={5} pilihan={pilihanTeks("tujuan", prd)} mintaAi={() => mintaPilihanTeks("Tujuan", prd)} />
           </Bagian>
 
           <Bagian nomor={4} judul="Target Pengguna" petunjuk="Pengguna utama dan sekunder, beserta kebutuhannya.">
-            <AreaTeks nilai={prd.targetPengguna} ubah={(v) => ubah({ targetPengguna: v })} baris={4} pilihan={pilihanTeks("targetPengguna", prd)} />
+            <AreaTeks nilai={prd.targetPengguna} ubah={(v) => ubah({ targetPengguna: v })} baris={4} pilihan={pilihanTeks("targetPengguna", prd)} mintaAi={() => mintaPilihanTeks("Target Pengguna", prd)} />
           </Bagian>
 
           <Bagian nomor={5} judul="Scope & Out of Scope" petunjuk="Batas yang jelas mencegah ruang lingkup melebar (scope creep).">
-            <AreaTeks label="Termasuk (Scope)" nilai={prd.scope} ubah={(v) => ubah({ scope: v })} baris={4} pilihan={pilihanTeks("scope", prd)} />
-            <AreaTeks label="Tidak Termasuk (Out of Scope)" nilai={prd.outOfScope} ubah={(v) => ubah({ outOfScope: v })} baris={4} pilihan={pilihanTeks("outOfScope", prd)} />
+            <AreaTeks label="Termasuk (Scope)" nilai={prd.scope} ubah={(v) => ubah({ scope: v })} baris={4} pilihan={pilihanTeks("scope", prd)} mintaAi={() => mintaPilihanTeks("Scope (yang termasuk dalam ruang lingkup)", prd)} />
+            <AreaTeks label="Tidak Termasuk (Out of Scope)" nilai={prd.outOfScope} ubah={(v) => ubah({ outOfScope: v })} baris={4} pilihan={pilihanTeks("outOfScope", prd)} mintaAi={() => mintaPilihanTeks("Out of Scope (yang tidak termasuk)", prd)} />
           </Bagian>
 
           <Bagian nomor={6} judul="Fitur & Prioritas (MoSCoW)" petunjuk="Must Have = wajib ada; Should Have = penting; Could Have = bila sempat; Won't Have = sengaja tidak dibuat.">
@@ -547,6 +633,7 @@ export default function HalamanPrd() {
               </div>
             ))}
             <SaranDaftar
+              mintaAi={() => mintaPaketFitur(prd)}
               paket={paketFitur(prd)}
               tambah={(entri) => ubah({ fitur: [...prd.fitur, ...entri] })}
             />
@@ -627,6 +714,7 @@ export default function HalamanPrd() {
               </div>
             ))}
             <SaranDaftar
+              mintaAi={() => mintaPaketStories(prd)}
               paket={paketStories(prd)}
               tambah={(entri) => ubah({ stories: [...prd.stories, ...entri] })}
             />
@@ -693,6 +781,7 @@ export default function HalamanPrd() {
               </div>
             ))}
             <SaranDaftar
+              mintaAi={() => mintaPaketMetrik(prd)}
               paket={paketMetrik(prd)}
               tambah={(entri) => ubah({ metrik: [...prd.metrik, ...entri] })}
             />
@@ -759,6 +848,7 @@ export default function HalamanPrd() {
               </div>
             ))}
             <SaranDaftar
+              mintaAi={() => mintaPaketMilestone(prd)}
               paket={paketMilestone(prd)}
               tambah={(entri) => ubah({ milestones: [...prd.milestones, ...entri] })}
             />
@@ -775,12 +865,12 @@ export default function HalamanPrd() {
           </Bagian>
 
           <Bagian nomor={10} judul="Persyaratan Non-Fungsional" petunjuk="Bahasa, performa, keamanan, ketersediaan, dan kegunaan.">
-            <AreaTeks nilai={prd.nonFungsional} ubah={(v) => ubah({ nonFungsional: v })} baris={5} pilihan={pilihanTeks("nonFungsional", prd)} />
+            <AreaTeks nilai={prd.nonFungsional} ubah={(v) => ubah({ nonFungsional: v })} baris={5} pilihan={pilihanTeks("nonFungsional", prd)} mintaAi={() => mintaPilihanTeks("Persyaratan Non-Fungsional", prd)} />
           </Bagian>
 
           <Bagian nomor={11} judul="Risiko & Asumsi" petunjuk="Risiko beserta mitigasinya, dan asumsi yang dipakai dokumen ini.">
-            <AreaTeks label="Risiko & Mitigasi" nilai={prd.risiko} ubah={(v) => ubah({ risiko: v })} baris={5} pilihan={pilihanTeks("risiko", prd)} />
-            <AreaTeks label="Asumsi" nilai={prd.asumsi} ubah={(v) => ubah({ asumsi: v })} baris={4} pilihan={pilihanTeks("asumsi", prd)} />
+            <AreaTeks label="Risiko & Mitigasi" nilai={prd.risiko} ubah={(v) => ubah({ risiko: v })} baris={5} pilihan={pilihanTeks("risiko", prd)} mintaAi={() => mintaPilihanTeks("Risiko & Mitigasi", prd)} />
+            <AreaTeks label="Asumsi" nilai={prd.asumsi} ubah={(v) => ubah({ asumsi: v })} baris={4} pilihan={pilihanTeks("asumsi", prd)} mintaAi={() => mintaPilihanTeks("Asumsi", prd)} />
           </Bagian>
 
           <Bagian nomor={12} judul="Stakeholder" petunjuk="Pihak yang terlibat: Product Manager, desainer, engineer, dan pemangku kepentingan lain.">
@@ -834,6 +924,7 @@ export default function HalamanPrd() {
               </div>
             ))}
             <SaranDaftar
+              mintaAi={() => mintaPaketStakeholder(prd)}
               paket={paketStakeholder(prd)}
               tambah={(entri) => ubah({ stakeholders: [...prd.stakeholders, ...entri] })}
             />
